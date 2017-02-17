@@ -15,7 +15,7 @@ HA_SERVERS=""
 SYS_CONFDIR="/etc/sysconfig"
 HA_CONF="${SYS_CONFDIR}/storhaug.conf"
 HA_CONF_INCDIR="${SYS_CONFDIR}/storhaug.d"
-HA_MNT_DIR="/run/storhaug"
+HA_MNT_DIR="/run/gluster"
 HA_SMB_MNT_DIR="lock"
 HA_NFS_MNT_DIR="state"
 STORAGE_SERVERS=""
@@ -305,6 +305,9 @@ create_virt_ip()
 
     pcs -f ${cibfile} constraint colocation add vip${ipcount}_trigger with vip${ipcount} INFINITY
     pcs -f ${cibfile} constraint order vip${ipcount} then vip${ipcount}_trigger
+
+    pcs -f ${cibfile} constraint colocation add vip${ipcount} with nfs-ganesha-clone INFINITY
+    pcs -f ${cibfile} constraint order nfs-ganesha-clone then vip${ipcount}
 }
 
 ### Setup functions
@@ -399,6 +402,7 @@ setup_create_resources()
             config="${HA_NFS_CONF}" \
             state_fs="${HA_NFS_TYPE}" \
             state_mnt="${HA_MNT_DIR}/${HA_NFS_MNT_DIR}" \
+        op monitor on-fail="block" \
         --clone nfs-ganesha-clone ganesha meta interleave="true" \
                                            globally-unique="false" \
                                            notify="true"
