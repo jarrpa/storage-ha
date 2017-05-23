@@ -1,22 +1,18 @@
-%define major_version 0
-%define minor_version 13
-%define release 1%{?dist}
-
 Name: storhaug
-Summary: High-Availability Storage Server Add-on
-Version: %{major_version}.%{minor_version}
-Release: %{release}
+Summary: High-Availability Add-on for NFS-Ganesha and Samba
+Version: 0.13
+Release: 1%{?prereltag:.%{prereltag}}%{?dist}
 License: GPLv2+
 Group: Applications/System
-URL: http://www.redhat.com
-Vendor: Red Hat, Inc.
+URL: https://github.com/linux-ha-storage/storhaug
+Vendor: Fedora Project
 BuildArch: noarch
 BuildRoot: %{_tmppath}/%{name}-%{version}-root
 
-Source0: %{name}-%{version}.tar.gz
+Source0:  https://github.com/linux-ha-storage/%{name}/archive/v%{version}/%{name}-%{version}.tar.gz
 
 Requires: glusterfs-server
-%if %{defined rhel} && %{rhel} < 7
+%if ( 0%{?rhel} && 0%{?rhel} < 7 )
 Requires: cman
 Requires: pacemaker
 %else
@@ -29,11 +25,10 @@ High-Availability add-on for storage servers
 
 ### NFS (NFS-Ganesha)
 %package nfs
-Summary: storhaug NFS module
+Summary: storhaug NFS-Ganesha module
 Group: Applications/System
-Requires: storhaug = %{version}-%{release}
+Requires: %{name} = %{version}-%{release}
 Requires: nfs-ganesha
-Requires: nfs-ganesha-utils
 
 %description nfs
 High-Availability NFS add-on for storage servers
@@ -42,7 +37,7 @@ High-Availability NFS add-on for storage servers
 %package smb
 Summary: storhaug SMB module
 Group: Applications/System
-Requires: storhaug = %{version}-%{release}
+Requires: %{name} = %{version}-%{release}
 Requires: ctdb >= 2.5
 Requires: samba
 Requires: samba-client
@@ -52,82 +47,41 @@ Requires: samba-winbind-clients
 %description smb
 High-Availability SMB add-on for storage servers
 
+%build
 
 %prep
-%setup -q -n %{name}
+%setup -q -n %{name}-%{version}
 
 %install
-%{__rm} -rf %{buildroot}
-
 install -d -m 0755 %{buildroot}%{_sbindir}
-install -m 0700 storhaug %{buildroot}%{_sbindir}/storhaug
+install -m 0700 src/storhaug %{buildroot}%{_sbindir}/storhaug
 
 sed -i 's/\%CONFDIR/\%{_sysconfdir}/' "%{buildroot}%{_sbindir}/storhaug"
 
 install -d -m 0700 %{buildroot}%{_sysconfdir}/sysconfig/storhaug.d
-install -m 0600 storhaug.conf.sample %{buildroot}%{_sysconfdir}/sysconfig/storhaug.conf
-install -m 0600 nfs-ha.conf.sample %{buildroot}%{_sysconfdir}/sysconfig/storhaug.d/nfs-ha.conf
-install -m 0600 smb-ha.conf.sample %{buildroot}%{_sysconfdir}/sysconfig/storhaug.d/smb-ha.conf
+install -m 0600 src/storhaug.conf.sample %{buildroot}%{_sysconfdir}/sysconfig/storhaug.conf
+install -m 0600 src/nfs-ha.conf.sample %{buildroot}%{_sysconfdir}/sysconfig/storhaug.d/nfs-ha.conf
+install -m 0600 src/smb-ha.conf.sample %{buildroot}%{_sysconfdir}/sysconfig/storhaug.d/smb-ha.conf
 
 install -d -m 0755 %{buildroot}%{_prefix}/lib/ocf/resource.d/heartbeat
-install -m 0755 ganesha %{buildroot}%{_prefix}/lib/ocf/resource.d/heartbeat/ganesha
-install -m 0755 ganesha_trigger %{buildroot}%{_prefix}/lib/ocf/resource.d/heartbeat/ganesha_trigger
+install -m 0755 src/ganesha %{buildroot}%{_prefix}/lib/ocf/resource.d/heartbeat/ganesha
+install -m 0755 src/ganesha_trigger %{buildroot}%{_prefix}/lib/ocf/resource.d/heartbeat/ganesha_trigger
 
-%post
-%if %{defined rhel} && %{rhel} < 7
-chkconfig corosync off
-chkconfig pacemaker on
-chkconfig pcsd on
-service pcsd start
-%else
-systemctl start pcsd.service
-systemctl enable pcsd.service
-%endif
-
-
-%post smb
-%if %{defined rhel} && %{rhel} < 7
-chkconfig ctdb off
-chkconfig smb off
-chkconfig nmb off
-chkconfig winbind off
-service ctdb stop
-service smb stop
-service nmb stop
-service winbind stop
-%else
-systemctl stop ctdb smb nmb winbind
-systemctl disable ctdb smb nmb winbind
-%endif
-
-%post nfs
-%if %{defined rhel} && %{rhel} < 7
-chkconfig nfs-server off
-chkconfig nfs-lock off
-service nfs-server stop
-service nfs-lock stop
-%else
-systemctl stop nfs-server nfs-lock
-systemctl disable nfs-server nfs-lock
-%endif
 
 %clean
-%{__rm} -rf %{buildroot}
 
 %files
-%defattr(-,root,root,-)
+%{!?_licensedir:%global license %%doc}
+%license LICENSE
 %config(noreplace) %{_sysconfdir}/sysconfig/storhaug.conf
 %attr(755,root,root) %dir %{_sysconfdir}/sysconfig/storhaug.d/
 %{_sbindir}/storhaug
 
 %files nfs
-%defattr(-,root,root,-)
 %config(noreplace) %{_sysconfdir}/sysconfig/storhaug.d/nfs-ha.conf
-%{_prefix}/lib/ocf/resource.d/heartbeat/ganesha
-%{_prefix}/lib/ocf/resource.d/heartbeat/ganesha_trigger
+%{_prefix}/lib/ocf/resource.d/heartbeat/*
 
 %files smb
-%defattr(-,root,root,-)
 %config(noreplace) %{_sysconfdir}/sysconfig/storhaug.d/smb-ha.conf
 
 

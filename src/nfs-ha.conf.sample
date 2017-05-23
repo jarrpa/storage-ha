@@ -2,7 +2,7 @@
 HA_NFS_TYPE="glusterfs"
 
 # Shared volume to store NFS state.
-HA_NFS_VOL="state"
+HA_NFS_VOL="gluster_shared_storage"
 
 # [OPTIONAL] Mount point for shared volume.
 HA_NFS_MNT_DIR="state"

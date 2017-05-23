@@ -352,15 +352,28 @@ setup_cluster()
 
     pcs cluster auth ${HA_SERVERS} -u hacluster -p ${HA_PASSWORD} --force
     pcs cluster setup --force --name ${HA_NAME} ${HA_SERVERS} || storlog "ERR" "Failed to setup cluster ${HA_NAME}"
-    pcs cluster start --all || storlog "ERR" "Failed to start cluster ${HA_NAME}"
 
-    sleep 3
+    # BZ 1284404, 1425110, allow time for SSL certs to propagate, until then
+    # pcsd will not accept connections.
+    sleep 12
+    pcs cluster start --all || storlog "ERR" "Failed to start cluster ${HA_NAME}"
+    while [ $? -ne 0 ]; do
+        sleep 2
+        pcs cluster start --all || storlog "ERR" "Failed to start cluster ${HA_NAME}"
+    done
+
+    # wait for the cluster to elect a DC before querying or writing
+    # to the CIB. BZ 1334092
+    crmadmin --dc_lookup --timeout=5000 > /dev/null 2>&1
+    while [ $? -ne 0 ]; do
+        crmadmin --dc_lookup --timeout=5000 > /dev/null 2>&1
+    done
+
     unclean=$(pcs status | grep -u "UNCLEAN")
     while [[ "${unclean}X" = "UNCLEANX" ]]; do
          sleep 1
          unclean=$(pcs status | grep -u "UNCLEAN")
     done
-    sleep 1
 
     local tmp_ifs=${IFS}
     IFS=$' '
